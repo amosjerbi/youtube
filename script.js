@@ -98,6 +98,16 @@ async function convertVideo(url, quality, format) {
             throw new Error(error.error || 'Conversion failed');
         }
 
+        // Check if response is JSON (fallback) or blob (successful conversion)
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            const data = await response.json();
+            if (!data.success) {
+                // Show alternative options
+                throw new Error(data.message || 'Conversion service unavailable');
+            }
+        }
+
         return await response.blob();
     } catch (error) {
         console.error('Error converting video:', error);

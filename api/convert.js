@@ -14,86 +14,96 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Dynamic imports
-    const { default: ytdl } = await import("@distube/ytdl-core");
-    const { default: ffmpegPath } = await import("ffmpeg-static");
-    const { default: ffmpeg } = await import("fluent-ffmpeg");
-    const { default: sanitize } = await import("sanitize-filename");
-
-    // Set ffmpeg path
-    ffmpeg.setFfmpegPath(ffmpegPath);
-
     const { url, quality = '192', format = 'mp3' } = req.body;
     
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
     }
 
-    console.log(`Converting: ${url} to ${format} at ${quality}kbps`);
+    console.log(`Convert request for: ${url}`);
 
-    // Validate URL
-    if (!ytdl.validateURL(url)) {
-      return res.status(400).json({ error: "Invalid YouTube URL" });
+    // Extract video ID
+    const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
+    if (!videoIdMatch) {
+      return res.status(400).json({ error: "Invalid YouTube URL format" });
     }
-
-    // Get video info for filename
-    const info = await ytdl.getInfo(url);
-    const videoTitle = sanitize(info.videoDetails.title) || 'download';
-    const filename = `${videoTitle}.${format}`;
-
-    // Set bitrate based on quality
-    const bitrates = {
-      '128': '128k',
-      '192': '192k', 
-      '320': '320k'
-    };
-    const bitrate = bitrates[quality] || '192k';
-
-    // Set response headers for download
-    res.setHeader('Content-Type', format === 'mp3' ? 'audio/mpeg' : format === 'm4a' ? 'audio/mp4' : 'audio/wav');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Cache-Control', 'no-cache');
-
-    // Create download stream
-    const stream = ytdl(url, {
-      quality: 'highestaudio',
-      filter: 'audioonly'
-    });
-
-    // Handle stream errors
-    stream.on('error', (error) => {
-      console.error('Stream error:', error);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Failed to download video' });
+    
+    const videoId = videoIdMatch[1];
+    
+    // For Vercel deployment, we'll return a client-side download instruction
+    // since ytdl-core has issues in serverless environments
+    
+    // Option 1: Try using ytdl-core if it works
+    try {
+      const { default: ytdl } = await import("@distube/ytdl-core");
+      const { default: ffmpegPath } = await import("ffmpeg-static");
+      const { default: ffmpeg } = await import("fluent-ffmpeg");
+      const { default: sanitize } = await import("sanitize-filename");
+      
+      ffmpeg.setFfmpegPath(ffmpegPath);
+      
+      if (!ytdl.validateURL(url)) {
+        throw new Error("Invalid URL for ytdl");
       }
-    });
-
-    // Convert and pipe to response
-    const command = ffmpeg(stream)
-      .audioBitrate(bitrate)
-      .audioCodec(format === 'mp3' ? 'libmp3lame' : format === 'm4a' ? 'aac' : 'pcm_s16le')
-      .format(format === 'wav' ? 'wav' : format)
-      .on('error', (error) => {
-        console.error('FFmpeg error:', error);
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Conversion failed' });
-        }
-      })
-      .on('end', () => {
-        console.log('Conversion completed successfully');
+      
+      const info = await ytdl.getInfo(url);
+      const videoTitle = sanitize(info.videoDetails.title) || 'download';
+      const filename = `${videoTitle}.${format}`;
+      
+      const bitrates = {
+        '128': '128k',
+        '192': '192k',
+        '320': '320k'
+      };
+      const bitrate = bitrates[quality] || '192k';
+      
+      res.setHeader('Content-Type', format === 'mp3' ? 'audio/mpeg' : format === 'm4a' ? 'audio/mp4' : 'audio/wav');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      
+      const stream = ytdl(url, {
+        quality: 'highestaudio',
+        filter: 'audioonly'
       });
-
-    // Pipe the output directly to the response
-    command.pipe(res, { end: true });
-
+      
+      const command = ffmpeg(stream)
+        .audioBitrate(bitrate)
+        .audioCodec(format === 'mp3' ? 'libmp3lame' : format === 'm4a' ? 'aac' : 'pcm_s16le')
+        .format(format === 'wav' ? 'wav' : format);
+      
+      command.pipe(res, { end: true });
+      
+    } catch (error) {
+      console.error('ytdl-core conversion failed:', error);
+      
+      // Option 2: Return instructions for client-side download
+      // This is a fallback when server-side conversion fails
+      res.status(200).json({
+        success: false,
+        message: "Server-side conversion is currently unavailable. Please try again later or use a desktop YouTube downloader.",
+        videoId: videoId,
+        alternatives: [
+          {
+            name: "y2mate.com",
+            url: `https://www.y2mate.com/youtube/${videoId}`,
+            description: "Online YouTube to MP3 converter"
+          },
+          {
+            name: "yt-dlp",
+            url: "https://github.com/yt-dlp/yt-dlp",
+            description: "Command-line YouTube downloader"
+          }
+        ],
+        error: error.message
+      });
+    }
+    
   } catch (error) {
     console.error('Error in convert handler:', error);
-    if (!res.headersSent) {
-      res.status(500).json({ 
-        error: 'Failed to convert video',
-        details: error.message 
-      });
-    }
+    res.status(500).json({ 
+      error: 'Conversion service temporarily unavailable',
+      details: error.message,
+      suggestion: 'Please try again later or use an alternative YouTube to MP3 service'
+    });
   }
 }
 
