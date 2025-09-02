@@ -1,6 +1,6 @@
-import ytdl from "@distube/ytdl-core";
+const ytdl = require("@distube/ytdl-core");
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -74,4 +74,4 @@ export default async function handler(req, res) {
       details: error.message 
     });
   }
-}
+};

@@ -1,22 +1,12 @@
-import ytdl from "@distube/ytdl-core";
-import ffmpegPath from "ffmpeg-static";
-import ffmpeg from "fluent-ffmpeg";
-import sanitize from "sanitize-filename";
+const ytdl = require("@distube/ytdl-core");
+const ffmpegPath = require("ffmpeg-static");
+const ffmpeg = require("fluent-ffmpeg");
+const sanitize = require("sanitize-filename");
 
 // Set ffmpeg path
 ffmpeg.setFfmpegPath(ffmpegPath);
 
-export const config = {
-  api: {
-    responseLimit: false,
-    bodyParser: {
-      sizeLimit: '10mb'
-    }
-  },
-  maxDuration: 60
-};
-
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -104,4 +94,14 @@ export default async function handler(req, res) {
       });
     }
   }
-}
+};
+
+module.exports.config = {
+  api: {
+    responseLimit: false,
+    bodyParser: {
+      sizeLimit: '10mb'
+    }
+  },
+  maxDuration: 60
+};
