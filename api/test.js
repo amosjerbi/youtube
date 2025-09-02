@@ -1,4 +1,4 @@
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   
   // Log environment info
@@ -13,4 +13,4 @@ module.exports = async function handler(req, res) {
     body: req.body,
     timestamp: new Date().toISOString()
   });
-};
+}

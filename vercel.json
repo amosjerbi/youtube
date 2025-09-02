@@ -2,7 +2,8 @@
   "functions": {
     "api/*.js": {
       "maxDuration": 60,
-      "memory": 3008
+      "memory": 3008,
+      "runtime": "nodejs20.x"
     }
   },
   "headers": [
@@ -22,6 +23,12 @@
           "value": "Content-Type"
         }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
     }
   ]
 }

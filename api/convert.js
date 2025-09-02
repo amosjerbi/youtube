@@ -1,12 +1,4 @@
-const ytdl = require("@distube/ytdl-core");
-const ffmpegPath = require("ffmpeg-static");
-const ffmpeg = require("fluent-ffmpeg");
-const sanitize = require("sanitize-filename");
-
-// Set ffmpeg path
-ffmpeg.setFfmpegPath(ffmpegPath);
-
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -22,6 +14,15 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    // Dynamic imports
+    const { default: ytdl } = await import("@distube/ytdl-core");
+    const { default: ffmpegPath } = await import("ffmpeg-static");
+    const { default: ffmpeg } = await import("fluent-ffmpeg");
+    const { default: sanitize } = await import("sanitize-filename");
+
+    // Set ffmpeg path
+    ffmpeg.setFfmpegPath(ffmpegPath);
+
     const { url, quality = '192', format = 'mp3' } = req.body;
     
     if (!url) {
@@ -94,9 +95,9 @@ module.exports = async function handler(req, res) {
       });
     }
   }
-};
+}
 
-module.exports.config = {
+export const config = {
   api: {
     responseLimit: false,
     bodyParser: {
