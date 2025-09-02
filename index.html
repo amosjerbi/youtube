@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube to MP3 Converter</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>YouTube to MP3 Converter</h1>
+            <p class="subtitle">Extract and convert audio from YouTube videos with multiple quality options</p>
+        </header>
+
+        <main class="main-content">
+            <!-- URL Input Section -->
+            <div class="input-section">
+                <div class="input-container">
+                    <input 
+                        type="url" 
+                        class="url-input" 
+                        id="urlInput"
+                        placeholder="Paste YouTube URL here..."
+                    >
+                    <button class="primary-btn" id="convertBtn">
+                        Convert to MP3
+                        <span class="arrow">↗</span>
+                    </button>
+                </div>
+                
+                <div class="controls-row">
+                    <button class="secondary-btn" id="clearBtn">
+                        <span class="icon">×</span>
+                        Clear
+                    </button>
+                    <button class="secondary-btn" id="pasteBtn">
+                        <span class="icon">📋</span>
+                        Paste from Clipboard
+                    </button>
+                </div>
+            </div>
+
+            <!-- Options Section -->
+            <div class="options-section">
+                <div class="option-group">
+                    <label class="option-label">Quality:</label>
+                    <div class="option-buttons">
+                        <button class="option-btn" data-quality="128">128 kbps</button>
+                        <button class="option-btn active" data-quality="192">192 kbps</button>
+                        <button class="option-btn" data-quality="320">320 kbps</button>
+                    </div>
+                </div>
+
+                <div class="option-group">
+                    <label class="option-label">Format:</label>
+                    <div class="option-buttons">
+                        <button class="option-btn active" data-format="mp3">MP3</button>
+                        <button class="option-btn" data-format="m4a">M4A</button>
+                        <button class="option-btn" data-format="wav">WAV</button>
+                    </div>
+                </div>
+
+                <div class="option-group">
+                    <label class="option-label">View:</label>
+                    <div class="option-buttons">
+                        <button class="view-btn active" data-view="grid">Grid</button>
+                        <button class="view-btn" data-view="list">List</button>
+                        <button class="view-btn" data-view="compact">Compact</button>
+                    </div>
+                </div>
+
+                <div class="option-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="showMetadata" checked>
+                        <span class="checkbox-label">Show Metadata</span>
+                    </label>
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="autoDownload">
+                        <span class="checkbox-label">Auto Download</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Progress Section -->
+            <div class="progress-section" id="progressSection" style="display: none;">
+                <div class="progress-header">
+                    <h3>Converting...</h3>
+                    <span class="progress-percentage">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="resultsSection">
+                <div class="results-header">
+                    <h3>Converted Files</h3>
+                    <div class="filter-container">
+                        <label>Filter by status:</label>
+                        <select class="filter-select">
+                            <option value="all">All</option>
+                            <option value="completed">Completed</option>
+                            <option value="processing">Processing</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="results-grid" id="resultsGrid">
+                    <!-- Placeholder content -->
+                    <div class="empty-state">
+                        <div class="empty-icon">🎵</div>
+                        <h3>Upload videos to see results</h3>
+                        <p>Audio files and metadata will appear here once you convert YouTube videos.</p>
+                        <button class="upload-hint-btn">Click here to paste a YouTube URL</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Download History -->
+            <div class="history-section">
+                <h3>Recent Conversions</h3>
+                <div class="history-list" id="historyList">
+                    <!-- History items will be added here -->
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>© 2024 YouTube to MP3 Converter • For personal use only • Respect copyright laws</p>
+        </footer>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <span class="toast-message"></span>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
