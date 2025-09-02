@@ -9,7 +9,24 @@ let isConverting = false;
 document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     document.getElementById('urlInput')?.focus();
+    testAPIConnection();
 });
+
+// Test API connection
+async function testAPIConnection() {
+    try {
+        console.log('Testing API connection...');
+        const response = await fetch(API_BASE + '/health');
+        if (response.ok) {
+            console.log('✅ API connection successful');
+        } else {
+            console.warn('⚠️ API returned status:', response.status);
+        }
+    } catch (error) {
+        console.error('❌ API connection failed:', error);
+        console.log('If you see ERR_BLOCKED_BY_CLIENT, please disable ad blockers for this site');
+    }
+}
 
 // Setup all event listeners
 function setupEventListeners() {
@@ -66,20 +83,35 @@ function setupEventListeners() {
 // Get video info from YouTube URL
 async function getVideoInfo(url) {
     try {
+        console.log('Fetching video info from:', API_BASE + "/info");
         const response = await fetch(API_BASE + "/info", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
             body: JSON.stringify({ url })
         });
 
+        console.log('Response status:', response.status);
+
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to get video info');
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            try {
+                const error = JSON.parse(errorText);
+                throw new Error(error.error || 'Failed to get video info');
+            } catch {
+                throw new Error('Failed to get video info: ' + errorText);
+            }
         }
 
         return await response.json();
     } catch (error) {
         console.error('Error getting video info:', error);
+        if (error.message.includes('Failed to fetch')) {
+            throw new Error('Unable to connect to server. Please check your connection or disable ad blockers.');
+        }
         throw error;
     }
 }
