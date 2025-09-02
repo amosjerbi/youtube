@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "URL is required" });
     }
 
-    console.log('Getting info for:', url);
+    console.log('Processing URL:', url);
 
     // Extract video ID from URL
     const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
@@ -30,77 +30,77 @@ export default async function handler(req, res) {
     
     const videoId = videoIdMatch[1];
     
-    // Use YouTube oEmbed API as a fallback (doesn't require authentication)
+    // Use YouTube oEmbed API to get basic info (doesn't require authentication)
     try {
       const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
       const oembedResponse = await fetch(oembedUrl);
       
-      if (!oembedResponse.ok) {
-        throw new Error('Failed to fetch from oEmbed API');
-      }
-      
-      const oembedData = await oembedResponse.json();
-      
-      // Return basic info from oEmbed
-      const videoDetails = {
-        title: oembedData.title || 'Unknown Title',
-        duration: 0, // oEmbed doesn't provide duration
-        thumbnail: oembedData.thumbnail_url || '',
-        author: oembedData.author_name || 'Unknown',
-        videoId: videoId,
-        description: '', // oEmbed doesn't provide description
-        viewCount: 0 // oEmbed doesn't provide view count
-      };
-      
-      console.log('Successfully got video info from oEmbed');
-      return res.status(200).json(videoDetails);
-      
-    } catch (oembedError) {
-      console.error('oEmbed API error:', oembedError);
-      
-      // If oEmbed fails, try ytdl-core
-      try {
-        const { default: ytdl } = await import("@distube/ytdl-core");
+      if (oembedResponse.ok) {
+        const oembedData = await oembedResponse.json();
         
-        if (!ytdl.validateURL(url)) {
-          return res.status(400).json({ error: "Invalid YouTube URL" });
-        }
-        
-        const info = await ytdl.getInfo(url);
-        
+        // Return video info with download service links
         const videoDetails = {
-          title: info.videoDetails.title,
-          duration: info.videoDetails.lengthSeconds,
-          thumbnail: info.videoDetails.thumbnails[info.videoDetails.thumbnails.length - 1]?.url || '',
-          author: info.videoDetails.author?.name || 'Unknown',
-          videoId: info.videoDetails.videoId,
-          description: info.videoDetails.description?.substring(0, 200) || '',
-          viewCount: info.videoDetails.viewCount || 0
-        };
-        
-        console.log('Successfully got video info from ytdl-core');
-        return res.status(200).json(videoDetails);
-        
-      } catch (ytdlError) {
-        console.error('ytdl-core error:', ytdlError);
-        
-        // Return minimal info if all methods fail
-        return res.status(200).json({
-          title: `YouTube Video (${videoId})`,
+          title: oembedData.title || 'YouTube Video',
           duration: 0,
-          thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-          author: 'YouTube',
+          thumbnail: oembedData.thumbnail_url || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+          author: oembedData.author_name || 'Unknown',
           videoId: videoId,
           description: '',
-          viewCount: 0
-        });
+          viewCount: 0,
+          // Add download service URLs
+          downloadServices: [
+            {
+              name: "Y2Mate",
+              url: `https://www.y2mate.com/youtube/${videoId}`,
+              description: "Popular online converter"
+            },
+            {
+              name: "SaveFrom.net",
+              url: `https://en.savefrom.net/1-youtube-video-downloader-${videoId}/`,
+              description: "Fast downloads"
+            },
+            {
+              name: "9xbuddy",
+              url: `https://9xbuddy.org/process?url=https://www.youtube.com/watch?v=${videoId}`,
+              description: "Multiple format options"
+            }
+          ]
+        };
+        
+        console.log('Successfully processed video info');
+        return res.status(200).json(videoDetails);
       }
+    } catch (oembedError) {
+      console.error('oEmbed error:', oembedError);
     }
+    
+    // Fallback: Return basic info even if oEmbed fails
+    return res.status(200).json({
+      title: `YouTube Video`,
+      duration: 0,
+      thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+      author: 'YouTube',
+      videoId: videoId,
+      description: '',
+      viewCount: 0,
+      downloadServices: [
+        {
+          name: "Y2Mate",
+          url: `https://www.y2mate.com/youtube/${videoId}`,
+          description: "Popular online converter"
+        },
+        {
+          name: "SaveFrom.net",
+          url: `https://en.savefrom.net/1-youtube-video-downloader-${videoId}/`,
+          description: "Fast downloads"
+        }
+      ]
+    });
 
   } catch (error) {
     console.error('Error in info handler:', error);
     res.status(500).json({ 
-      error: "Failed to fetch video information",
+      error: "Failed to process video",
       details: error.message 
     });
   }

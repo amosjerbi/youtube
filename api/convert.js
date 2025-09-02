@@ -30,89 +30,66 @@ export default async function handler(req, res) {
     
     const videoId = videoIdMatch[1];
     
-    // For Vercel deployment, we'll return a client-side download instruction
-    // since ytdl-core has issues in serverless environments
+    // Since direct download from Vercel is blocked by YouTube,
+    // return redirect URLs to working download services
+    const downloadServices = {
+      y2mate: `https://www.y2mate.com/youtube/${videoId}`,
+      savefrom: `https://en.savefrom.net/1-youtube-video-downloader-${videoId}/`,
+      ninexbuddy: `https://9xbuddy.org/process?url=https://www.youtube.com/watch?v=${videoId}`,
+      dirpy: `https://dirpy.com/from/youtube?url=https://www.youtube.com/watch?v=${videoId}`,
+      ytmp3: `https://ytmp3.cc/youtube-to-mp3/?url=https://www.youtube.com/watch?v=${videoId}`
+    };
     
-    // Option 1: Try using ytdl-core if it works
-    try {
-      const { default: ytdl } = await import("@distube/ytdl-core");
-      const { default: ffmpegPath } = await import("ffmpeg-static");
-      const { default: ffmpeg } = await import("fluent-ffmpeg");
-      const { default: sanitize } = await import("sanitize-filename");
-      
-      ffmpeg.setFfmpegPath(ffmpegPath);
-      
-      if (!ytdl.validateURL(url)) {
-        throw new Error("Invalid URL for ytdl");
-      }
-      
-      const info = await ytdl.getInfo(url);
-      const videoTitle = sanitize(info.videoDetails.title) || 'download';
-      const filename = `${videoTitle}.${format}`;
-      
-      const bitrates = {
-        '128': '128k',
-        '192': '192k',
-        '320': '320k'
-      };
-      const bitrate = bitrates[quality] || '192k';
-      
-      res.setHeader('Content-Type', format === 'mp3' ? 'audio/mpeg' : format === 'm4a' ? 'audio/mp4' : 'audio/wav');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      
-      const stream = ytdl(url, {
-        quality: 'highestaudio',
-        filter: 'audioonly'
-      });
-      
-      const command = ffmpeg(stream)
-        .audioBitrate(bitrate)
-        .audioCodec(format === 'mp3' ? 'libmp3lame' : format === 'm4a' ? 'aac' : 'pcm_s16le')
-        .format(format === 'wav' ? 'wav' : format);
-      
-      command.pipe(res, { end: true });
-      
-    } catch (error) {
-      console.error('ytdl-core conversion failed:', error);
-      
-      // Option 2: Return instructions for client-side download
-      // This is a fallback when server-side conversion fails
-      res.status(200).json({
-        success: false,
-        message: "Server-side conversion is currently unavailable. Please try again later or use a desktop YouTube downloader.",
-        videoId: videoId,
-        alternatives: [
-          {
-            name: "y2mate.com",
-            url: `https://www.y2mate.com/youtube/${videoId}`,
-            description: "Online YouTube to MP3 converter"
-          },
-          {
-            name: "yt-dlp",
-            url: "https://github.com/yt-dlp/yt-dlp",
-            description: "Command-line YouTube downloader"
-          }
-        ],
-        error: error.message
-      });
-    }
+    // Return a JSON response with redirect information
+    res.status(200).json({
+      success: true,
+      message: "Due to YouTube restrictions on cloud platforms, please use one of these services to download your video:",
+      videoId: videoId,
+      videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+      services: [
+        {
+          name: "Y2Mate (Recommended)",
+          url: downloadServices.y2mate,
+          features: ["MP3", "MP4", "Multiple qualities"],
+          direct: true
+        },
+        {
+          name: "SaveFrom.net",
+          url: downloadServices.savefrom,
+          features: ["Fast downloads", "Browser extension available"],
+          direct: true
+        },
+        {
+          name: "Dirpy",
+          url: downloadServices.dirpy,
+          features: ["Audio cutting", "ID3 tag editing"],
+          direct: true
+        },
+        {
+          name: "YTMP3",
+          url: downloadServices.ytmp3,
+          features: ["Simple interface", "Quick conversion"],
+          direct: true
+        }
+      ],
+      requestedFormat: format,
+      requestedQuality: quality
+    });
     
   } catch (error) {
     console.error('Error in convert handler:', error);
     res.status(500).json({ 
-      error: 'Conversion service temporarily unavailable',
+      error: 'Service error',
       details: error.message,
-      suggestion: 'Please try again later or use an alternative YouTube to MP3 service'
+      suggestion: 'Please try using one of the alternative download services'
     });
   }
 }
 
 export const config = {
   api: {
-    responseLimit: false,
     bodyParser: {
-      sizeLimit: '10mb'
+      sizeLimit: '1mb'
     }
-  },
-  maxDuration: 60
+  }
 };

@@ -84,7 +84,7 @@ async function getVideoInfo(url) {
     }
 }
 
-// Convert video to audio
+// Convert video to audio (now redirects to download services)
 async function convertVideo(url, quality, format) {
     try {
         const response = await fetch(API_BASE + "/convert", {
@@ -98,19 +98,10 @@ async function convertVideo(url, quality, format) {
             throw new Error(error.error || 'Conversion failed');
         }
 
-        // Check if response is JSON (fallback) or blob (successful conversion)
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-            const data = await response.json();
-            if (!data.success) {
-                // Show alternative options
-                throw new Error(data.message || 'Conversion service unavailable');
-            }
-        }
-
-        return await response.blob();
+        const data = await response.json();
+        return data;
     } catch (error) {
-        console.error('Error converting video:', error);
+        console.error('Error in conversion:', error);
         throw error;
     }
 }
@@ -118,7 +109,7 @@ async function convertVideo(url, quality, format) {
 // Handle the conversion process
 async function handleConvert() {
     if (isConverting) {
-        showToast('Conversion already in progress...');
+        showToast('Processing...');
         return;
     }
 
@@ -138,48 +129,36 @@ async function handleConvert() {
     isConverting = true;
     const convertBtn = document.getElementById('convertBtn');
     const originalBtnText = convertBtn.innerHTML;
-    convertBtn.innerHTML = 'Converting... <span class="spinner"></span>';
+    convertBtn.innerHTML = 'Processing... <span class="spinner"></span>';
     convertBtn.disabled = true;
 
     try {
         // Show progress
         showProgress();
-        updateProgress(10, 'Fetching video information...');
+        updateProgress(25, 'Getting video information...');
 
         // Get video info
         currentVideoInfo = await getVideoInfo(url);
-        updateProgress(30, 'Video info retrieved');
+        updateProgress(50, 'Video info retrieved');
 
         // Get selected options
         const quality = document.querySelector('.option-btn[data-quality].active')?.dataset.quality || '192';
         const format = document.querySelector('.option-btn[data-format].active')?.dataset.format || 'mp3';
 
-        // Convert video
-        updateProgress(50, `Converting to ${format.toUpperCase()} at ${quality}kbps...`);
-        const blob = await convertVideo(url, quality, format);
-        updateProgress(90, 'Conversion complete');
+        // Get download services
+        updateProgress(75, 'Preparing download options...');
+        const downloadData = await convertVideo(url, quality, format);
+        
+        updateProgress(100, 'Ready!');
 
-        // Download the file
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = `${sanitizeFilename(currentVideoInfo.title || 'download')}.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(downloadUrl);
-
-        updateProgress(100, 'Download started!');
-        showToast('Download completed successfully!');
-
-        // Show results
+        // Show download options
         setTimeout(() => {
             hideProgress();
-            showResults(currentVideoInfo, quality, format);
-        }, 1000);
+            showDownloadOptions(currentVideoInfo, downloadData);
+        }, 500);
 
     } catch (error) {
-        console.error('Conversion error:', error);
+        console.error('Error:', error);
         showToast('Error: ' + error.message);
         hideProgress();
     } finally {
@@ -187,6 +166,56 @@ async function handleConvert() {
         convertBtn.innerHTML = originalBtnText;
         convertBtn.disabled = false;
     }
+}
+
+// Show download options with external services
+function showDownloadOptions(videoInfo, downloadData) {
+    const resultsGrid = document.getElementById('resultsGrid');
+    if (!resultsGrid) return;
+
+    const services = downloadData.services || [];
+    
+    resultsGrid.innerHTML = `
+        <div class="result-card" style="max-width: 600px; margin: 0 auto;">
+            <div class="result-thumbnail" style="background-image: url('${videoInfo.thumbnail || ''}'); background-size: cover; background-position: center; height: 200px;">
+                <div class="format-badge">${downloadData.requestedFormat?.toUpperCase() || 'MP3'}</div>
+            </div>
+            <div class="result-info">
+                <h4 class="result-title">${videoInfo.title || 'YouTube Video'}</h4>
+                <p class="result-author" style="margin: 10px 0; color: #666;">By ${videoInfo.author || 'Unknown'}</p>
+                
+                <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px; margin: 15px 0;">
+                    <p style="margin: 0; color: #856404; font-size: 14px;">
+                        ⚠️ Due to YouTube restrictions on cloud platforms, direct download is not available. 
+                        Please use one of these trusted services:
+                    </p>
+                </div>
+                
+                <div class="download-services" style="margin-top: 20px;">
+                    ${services.map(service => `
+                        <a href="${service.url}" target="_blank" rel="noopener noreferrer" 
+                           style="display: block; margin: 10px 0; padding: 12px; background: #007bff; color: white; 
+                                  text-decoration: none; border-radius: 8px; text-align: center; 
+                                  transition: background 0.3s;"
+                           onmouseover="this.style.background='#0056b3'" 
+                           onmouseout="this.style.background='#007bff'">
+                            <strong>${service.name}</strong>
+                            ${service.features ? `<br><small style="opacity: 0.9;">${service.features.join(' • ')}</small>` : ''}
+                        </a>
+                    `).join('')}
+                </div>
+                
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                    <p style="color: #666; font-size: 13px; margin: 0;">
+                        💡 Tip: For best results, use Y2Mate or SaveFrom.net. They support multiple formats and qualities.
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add to history
+    addToHistory(videoInfo, downloadData.requestedQuality, downloadData.requestedFormat);
 }
 
 // Show progress section
@@ -223,64 +252,6 @@ function updateProgress(percentage, message) {
     }
 }
 
-// Show results after conversion
-function showResults(videoInfo, quality, format) {
-    const resultsGrid = document.getElementById('resultsGrid');
-    if (!resultsGrid || !videoInfo) return;
-
-    // Calculate file size estimate
-    const duration = parseInt(videoInfo.duration) || 0;
-    const bitrates = { '128': 128, '192': 192, '320': 320 };
-    const sizeInMB = (bitrates[quality] * duration) / (8 * 1024);
-    const fileSize = sizeInMB.toFixed(1) + ' MB';
-
-    // Format duration
-    const minutes = Math.floor(duration / 60);
-    const seconds = duration % 60;
-    const formattedDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-    resultsGrid.innerHTML = `
-        <div class="result-card">
-            <div class="result-thumbnail" style="background-image: url('${videoInfo.thumbnail || ''}'); background-size: cover; background-position: center;">
-                <div class="format-badge">${format.toUpperCase()}</div>
-                <div class="play-overlay">▶</div>
-            </div>
-            <div class="result-info">
-                <h4 class="result-title">${videoInfo.title || 'YouTube Video'}</h4>
-                <div class="result-meta">
-                    <span class="meta-item">${formattedDuration}</span>
-                    <span class="meta-item">${quality} kbps</span>
-                    <span class="meta-item">${fileSize}</span>
-                </div>
-                <div class="result-author">${videoInfo.author || 'Unknown Author'}</div>
-                <div class="result-actions">
-                    <button class="download-btn" onclick="handleRedownload()">Download Again</button>
-                    <button class="preview-btn" onclick="window.open('https://youtube.com/watch?v=${videoInfo.videoId || ''}', '_blank')">Watch on YouTube</button>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Add to history
-    addToHistory(videoInfo, quality, format);
-}
-
-// Handle re-download
-async function handleRedownload() {
-    if (!currentVideoInfo) {
-        showToast('Please convert a video first');
-        return;
-    }
-    
-    const url = document.getElementById('urlInput').value;
-    if (!url) {
-        showToast('URL not found');
-        return;
-    }
-    
-    await handleConvert();
-}
-
 // Add to conversion history
 function addToHistory(videoInfo, quality, format) {
     const historyList = document.getElementById('historyList');
@@ -292,7 +263,7 @@ function addToHistory(videoInfo, quality, format) {
         <div class="history-thumbnail" style="background-image: url('${videoInfo.thumbnail || ''}')"></div>
         <div class="history-info">
             <div class="history-title">${videoInfo.title || 'Unknown'}</div>
-            <div class="history-meta">${format.toUpperCase()} • ${quality}kbps</div>
+            <div class="history-meta">${format?.toUpperCase() || 'MP3'} • ${quality || '192'}kbps</div>
         </div>
         <div class="history-time">${new Date().toLocaleTimeString()}</div>
     `;
@@ -308,11 +279,6 @@ function addToHistory(videoInfo, quality, format) {
     while (historyList.children.length > 10) {
         historyList.removeChild(historyList.lastChild);
     }
-}
-
-// Sanitize filename
-function sanitizeFilename(filename) {
-    return filename.replace(/[^a-z0-9\s\-\_]/gi, '').trim();
 }
 
 // Show toast notification
