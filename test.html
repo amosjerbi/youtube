@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test</title>
+</head>
+<body>
+    <h1>YouTube to MP3 API Test</h1>
+    <p>Open the browser console to see test results.</p>
+    
+    <input type="text" id="urlInput" placeholder="Enter YouTube URL" style="width: 400px; padding: 10px;">
+    <button onclick="testAPI()">Test API</button>
+    
+    <div id="result" style="margin-top: 20px; padding: 20px; background: #f0f0f0; border-radius: 8px; display: none;">
+        <h3>Result:</h3>
+        <pre id="resultContent"></pre>
+    </div>
+
+    <script>
+        // Test basic API connectivity
+        console.log('Testing API endpoints...');
+        
+        // Test health endpoint
+        fetch('/api/health')
+            .then(res => {
+                console.log('Health endpoint status:', res.status);
+                return res.json();
+            })
+            .then(data => console.log('Health response:', data))
+            .catch(err => console.error('Health endpoint error:', err));
+        
+        // Test function
+        async function testAPI() {
+            const url = document.getElementById('urlInput').value || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+            const resultDiv = document.getElementById('result');
+            const resultContent = document.getElementById('resultContent');
+            
+            resultDiv.style.display = 'block';
+            resultContent.textContent = 'Testing...';
+            
+            try {
+                // Test info endpoint
+                console.log('Testing info endpoint with URL:', url);
+                const infoResponse = await fetch('/api/info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url })
+                });
+                
+                console.log('Info response status:', infoResponse.status);
+                const infoData = await infoResponse.json();
+                console.log('Info data:', infoData);
+                
+                // Test convert endpoint
+                console.log('Testing convert endpoint...');
+                const convertResponse = await fetch('/api/convert', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url, quality: '192', format: 'mp3' })
+                });
+                
+                console.log('Convert response status:', convertResponse.status);
+                const convertData = await convertResponse.json();
+                console.log('Convert data:', convertData);
+                
+                // Display results
+                resultContent.textContent = JSON.stringify({
+                    info: infoData,
+                    convert: convertData
+                }, null, 2);
+                
+            } catch (error) {
+                console.error('Test error:', error);
+                resultContent.textContent = 'Error: ' + error.message + '\n\nCheck browser console for details.';
+            }
+        }
+        
+        // Auto-test on load
+        window.addEventListener('load', () => {
+            console.log('Page loaded. API base URL: /api');
+            console.log('If you see ERR_BLOCKED_BY_CLIENT errors, disable ad blockers.');
+        });
+    </script>
+</body>
+</html>

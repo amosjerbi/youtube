@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube to MP3 Converter - Simple Version</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .result.show {
+            display: block;
+        }
+        
+        .video-info {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .video-thumbnail {
+            width: 120px;
+            height: 90px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+        
+        .video-details h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .video-details p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .download-options {
+            margin-top: 20px;
+        }
+        
+        .download-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            text-align: center;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+        
+        .download-btn:hover {
+            background: #45a049;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            color: #856404;
+        }
+        
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 20px;
+            color: #721c24;
+            display: none;
+        }
+        
+        .error.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 YouTube to MP3</h1>
+        <p class="subtitle">Convert YouTube videos to MP3 audio files</p>
+        
+        <div class="input-group">
+            <input type="url" id="urlInput" placeholder="Paste YouTube URL here..." />
+        </div>
+        
+        <button id="convertBtn" onclick="handleConvert()">Convert to MP3</button>
+        
+        <div id="errorDiv" class="error"></div>
+        
+        <div id="resultDiv" class="result">
+            <div class="warning">
+                ⚠️ Due to YouTube restrictions, direct download is not available. Use one of these trusted services:
+            </div>
+            
+            <div class="video-info">
+                <img id="thumbnail" class="video-thumbnail" src="" alt="Video thumbnail">
+                <div class="video-details">
+                    <h3 id="videoTitle">Loading...</h3>
+                    <p id="videoAuthor">Loading...</p>
+                </div>
+            </div>
+            
+            <div class="download-options" id="downloadOptions">
+                <!-- Download links will be inserted here -->
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        async function handleConvert() {
+            const urlInput = document.getElementById('urlInput');
+            const url = urlInput.value.trim();
+            const convertBtn = document.getElementById('convertBtn');
+            const resultDiv = document.getElementById('resultDiv');
+            const errorDiv = document.getElementById('errorDiv');
+            
+            // Reset error
+            errorDiv.classList.remove('show');
+            errorDiv.textContent = '';
+            
+            if (!url) {
+                showError('Please enter a YouTube URL');
+                return;
+            }
+            
+            // Validate YouTube URL
+            const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/|v\/)|youtu\.be\/)[\w-]+/;
+            if (!youtubeRegex.test(url)) {
+                showError('Please enter a valid YouTube URL');
+                return;
+            }
+            
+            convertBtn.disabled = true;
+            convertBtn.textContent = 'Processing...';
+            
+            try {
+                // Get video info
+                const infoResponse = await fetch('/api/info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url })
+                });
+                
+                if (!infoResponse.ok) {
+                    throw new Error('Failed to get video information');
+                }
+                
+                const videoInfo = await infoResponse.json();
+                
+                // Get download options
+                const convertResponse = await fetch('/api/convert', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url, quality: '192', format: 'mp3' })
+                });
+                
+                if (!convertResponse.ok) {
+                    throw new Error('Failed to get download options');
+                }
+                
+                const downloadData = await convertResponse.json();
+                
+                // Display results
+                document.getElementById('thumbnail').src = videoInfo.thumbnail || '';
+                document.getElementById('videoTitle').textContent = videoInfo.title || 'YouTube Video';
+                document.getElementById('videoAuthor').textContent = 'by ' + (videoInfo.author || 'Unknown');
+                
+                // Add download links
+                const downloadOptions = document.getElementById('downloadOptions');
+                downloadOptions.innerHTML = '';
+                
+                if (downloadData.services) {
+                    downloadData.services.forEach(service => {
+                        const link = document.createElement('a');
+                        link.href = service.url;
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                        link.className = 'download-btn';
+                        link.textContent = `Download with ${service.name}`;
+                        downloadOptions.appendChild(link);
+                    });
+                }
+                
+                resultDiv.classList.add('show');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showError(error.message || 'An error occurred. Please try again.');
+            } finally {
+                convertBtn.disabled = false;
+                convertBtn.textContent = 'Convert to MP3';
+            }
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorDiv');
+            errorDiv.textContent = '❌ ' + message;
+            errorDiv.classList.add('show');
+        }
+        
+        // Allow Enter key to submit
+        document.getElementById('urlInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                handleConvert();
+            }
+        });
+    </script>
+</body>
+</html>
